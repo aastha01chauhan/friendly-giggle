@@ -34,7 +34,10 @@ class YoloClassifier(Classifier):
     def classify(self, image: Union[Image.Image, str]) -> ClassifierOutput:
         if isinstance(image, Image.Image):
             image = transforms.ToTensor()(image).unsqueeze(0)  # Ensure image is a batch of one
-        image = image.to(self._device)
+
+        # Move image to device
+        image = image.to(self._device if isinstance(self._device, torch.device) else torch.device(self._device))
+        
         result = self._model(image, verbose=False, device=self._device, batch=self._batch_size)  # Use the batch size
         print(f"Running model on device {self._device} with batch size {self._batch_size}")
         if not result or len(result) == 0:
@@ -155,7 +158,7 @@ if __name__ == "__main__":
 
     args = arg_parser.parse_args()
 
-    device = 'cpu' if args.device == 'cpu' else [0, 1]
+    device = 'cpu' if args.device == 'cpu' else torch.device("cuda")  # Correctly setting device for CUDA
 
     classifier = args.classifier
     if classifier == "yolon":
