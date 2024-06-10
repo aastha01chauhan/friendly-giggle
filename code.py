@@ -29,7 +29,6 @@ class YoloClassifier(Classifier):
         self._model = YOLO(model_path)
         self._device = kwargs.pop("device", "cpu")
         self._batch_size = kwargs.pop("batch", 16)  # Default batch size to 16
-        print(f"Model initialized with batch size {self._batch_size} on device {self._device}")
 
     def classify(self, image: Union[Image.Image, str]) -> ClassifierOutput:
         result = self._model(image, verbose=False, device=self._device, batch=self._batch_size)  # Use the batch size
@@ -66,6 +65,8 @@ def from_yolo_bbox(cx, cy, nw, nh, w, h) -> BBox2D:
     lower = min(h, int((cy + nh / 2) * h))
     return BBox2D((left, upper, right, lower), mode=XYXY)
 
+
+
 def distort(x1, y1, x2, y2):
     w = x2 - x1
     h = y2 - y1
@@ -76,21 +77,23 @@ def distort(x1, y1, x2, y2):
     distortion_x = random.uniform(0, max_distortion_x)
     distortion_y = random.uniform(0, max_distortion_y)
 
-    distortion_x = random.choice([-1, 1]) * distortion_x
-    distortion_y = random.choice([-1, 1]) * distortion_y
-
+    distortion_x = random.choice([-1,1]) * distortion_x
+    distortion_y = random.choice([-1,1]) * distortion_y
+    
+    
     # Apply distortion to the corners
     x1_distorted = int(max(0, x1 + distortion_x))
     y1_distorted = int(max(0, y1 + distortion_y))
     x2_distorted = int(min(w, x2 + distortion_x))
     y2_distorted = int(min(h, y2 + distortion_y))
-
+    
     return x1_distorted, y1_distorted, x2_distorted, y2_distorted
+
 
 def distort_image(img: Image.Image) -> tuple[float, Image.Image]:
     w, h = img.size
 
-    x1, y1, x2, y2 = 0, 0, w - 1, h - 1
+    x1, y1, x2, y2 = 0, 0, w-1, h-1
     old_bbox = bbox.BBox2D((x1, y1, x2, y2), mode=bbox.XYXY)
 
     x1, y1, x2, y2 = distort(x1, y1, x2, y2)
@@ -102,22 +105,22 @@ def distort_image(img: Image.Image) -> tuple[float, Image.Image]:
     return _iou, img.crop((x1, y1, x2, y2))
 
 def main(dir_: str, classifier: YoloClassifier):
+
     d = {2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0}
     d_not = {2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0}
+
 
     for cls_dir in os.listdir(dir_):
         for file in os.listdir(f"{dir_}/{cls_dir}"):
             if file.endswith(".png"):
                 img = Image.open(f"{dir_}/{cls_dir}/{file}")
                 _iou, img = distort_image(img)
-                print(f"Processing file: {file}, IoU: {_iou}")
 
                 try:
                     pred = classifier.classify(img).class_
-                    print(f"Prediction: {pred}, Actual: {cls_dir}")
-                except Exception as e:
-                    print(f"Error classifying image {file}: {e}")
+                except:
                     continue
+
 
                 if _iou < 0.2:
                     d[2] += pred == cls_dir
@@ -150,13 +153,14 @@ def main(dir_: str, classifier: YoloClassifier):
     print(d)
     print(d_not)
 
+
+
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser(description='Infer a model')
     arg_parser.add_argument('--classifier', type=str, required=True, choices=["yolon", "yolos", "yolom", "yolol"],
                             help='classifier')
     arg_parser.add_argument('--dataset', type=str, required=True, choices=["shvn", "coco-animal"], help='classifier')
     arg_parser.add_argument('--device', type=str, required=True, choices=["cpu", "gpu"], help='device')
-    arg_parser.add_argument('--batch', type=int, default=16, help='batch size for inference')
 
     args = arg_parser.parse_args()
 
@@ -164,13 +168,13 @@ if __name__ == "__main__":
 
     classifier = args.classifier
     if classifier == "yolon":
-        classifier = YoloClassifier(f"/home/astha/vizq-experiment/vizq-experiment-master/train/vizq-exp-models/yolon-cls-{args.dataset}.pt", device=device, batch=args.batch)
+        classifier = YoloClassifier(f"/home/astha/vizq-experiment/vizq-experiment-master/train/vizq-exp-models/yolon-cls-shvn.pt", device=device)
     elif classifier == "yolos":
-        classifier = YoloClassifier(f"train/vizq-exp-models/yolos-cls-{args.dataset}.pt", device=device, batch=args.batch)
+        classifier = YoloClassifier(f"train/trained_models/yolos-cls-{args.dataset}.pt", device=device)
     elif classifier == "yolom":
-        classifier = YoloClassifier(f"train/vizq-exp-models/yolom-cls-{args.dataset}.pt", device=device, batch=args.batch)
+        classifier = YoloClassifier(f"train/trained_models/yolom-cls-{args.dataset}.pt", device=device)
     elif classifier == "yolol":
-        classifier = YoloClassifier(f"train/vizq-exp-models/yolol-cls-{args.dataset}.pt", device=device, batch=args.batch)
+        classifier = YoloClassifier(f"train/trained_models/yolol-cls-{args.dataset}.pt", device=device)
     else:
         raise Exception("Unrecognized classifier")
 
