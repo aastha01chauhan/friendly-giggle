@@ -7,7 +7,7 @@ import bbox
 import abc
 import dataclasses
 import torch
-from torchvision.transforms import transforms
+from torchvision import transforms
 from ultralytics import YOLO
 
 @dataclasses.dataclass
@@ -29,13 +29,16 @@ class YoloClassifier(Classifier):
         self._model = YOLO(model_path)
         self._device = kwargs.pop("device", "cpu")
         self._batch_size = kwargs.pop("batch", 16)  # Default batch size to 16
+        self._resize = kwargs.pop("resize", (640, 640))  # Default resize to 640x640
         print(f"Model initialized with batch size {self._batch_size} on device {self._device}")
 
     def classify(self, image: Union[Image.Image, str]) -> ClassifierOutput:
         if isinstance(image, Image.Image):
-            image = transforms.ToTensor()(image).unsqueeze(0)  # Ensure image is a batch of one
-
-        # Move image to device
+            transform = transforms.Compose([
+                transforms.Resize(self._resize),
+                transforms.ToTensor()
+            ])
+            image = transform(image).unsqueeze(0)  # Ensure image is a batch of one
         image = image.to(self._device if isinstance(self._device, torch.device) else torch.device(self._device))
         
         result = self._model(image, verbose=False, device=self._device, batch=self._batch_size)  # Use the batch size
@@ -158,7 +161,7 @@ if __name__ == "__main__":
 
     args = arg_parser.parse_args()
 
-    device = 'cpu' if args.device == 'cpu' else torch.device("cuda")  # Correctly setting device for CUDA
+    device = 'cpu' if args.device == 'cpu' else torch.device("cuda")
 
     classifier = args.classifier
     if classifier == "yolon":
