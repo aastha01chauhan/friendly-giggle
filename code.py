@@ -33,6 +33,9 @@ class YoloClassifier(Classifier):
 
     def classify(self, image: Union[Image.Image, str]) -> ClassifierOutput:
         result = self._model(image, verbose=False, device=self._device, batch=self._batch_size)  # Use the batch size
+        print(f"Running model on device {self._device} with batch size {self._batch_size}")
+        if not result or len(result) == 0:
+            raise ValueError("Model did not return any results.")
         return ClassifierOutput(result[0].names[result[0].probs.top1], result[0].probs.top1conf)
 
 from bbox import BBox2D, XYXY
@@ -69,36 +72,25 @@ def from_yolo_bbox(cx, cy, nw, nh, w, h) -> BBox2D:
 def distort(x1, y1, x2, y2):
     w = x2 - x1
     h = y2 - y1
-    # Define the maximum distortion values
     max_distortion_x = 0.6 * w
     max_distortion_y = 0.6 * h
-
     distortion_x = random.uniform(0, max_distortion_x)
     distortion_y = random.uniform(0, max_distortion_y)
-
     distortion_x = random.choice([-1, 1]) * distortion_x
     distortion_y = random.choice([-1, 1]) * distortion_y
-
-    # Apply distortion to the corners
     x1_distorted = int(max(0, x1 + distortion_x))
     y1_distorted = int(max(0, y1 + distortion_y))
     x2_distorted = int(min(w, x2 + distortion_x))
     y2_distorted = int(min(h, y2 + distortion_y))
-
     return x1_distorted, y1_distorted, x2_distorted, y2_distorted
 
 def distort_image(img: Image.Image) -> tuple[float, Image.Image]:
     w, h = img.size
-
     x1, y1, x2, y2 = 0, 0, w - 1, h - 1
     old_bbox = bbox.BBox2D((x1, y1, x2, y2), mode=bbox.XYXY)
-
     x1, y1, x2, y2 = distort(x1, y1, x2, y2)
-
     new_bbox = bbox.BBox2D((x1, y1, x2, y2), mode=bbox.XYXY)
-
     _iou = iou(old_bbox, new_bbox)
-
     return _iou, img.crop((x1, y1, x2, y2))
 
 def main(dir_: str, classifier: YoloClassifier):
