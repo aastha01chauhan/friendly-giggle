@@ -32,6 +32,9 @@ class YoloClassifier(Classifier):
         print(f"Model initialized with batch size {self._batch_size} on device {self._device}")
 
     def classify(self, image: Union[Image.Image, str]) -> ClassifierOutput:
+        if isinstance(image, Image.Image):
+            image = transforms.ToTensor()(image).unsqueeze(0)  # Ensure image is a batch of one
+        image = image.to(self._device)
         result = self._model(image, verbose=False, device=self._device, batch=self._batch_size)  # Use the batch size
         print(f"Running model on device {self._device} with batch size {self._batch_size}")
         if not result or len(result) == 0:
